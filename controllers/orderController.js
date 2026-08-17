@@ -1,9 +1,12 @@
-// controllers/orderController.js - File-based version
+// controllers/orderController.js - File‑based version
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const db = require('../config/fileDatabase');
+const emailService = require('../services/emailService');
 
-// Create new order
+/**
+ * Create a new order
+ */
 exports.createOrder = async (req, res) => {
   try {
     const {
@@ -16,6 +19,7 @@ exports.createOrder = async (req, res) => {
       deliveryInstructions
     } = req.body;
 
+    // Basic validation
     if (!items || items.length === 0) {
       return res.status(400).json({
         success: false,
@@ -26,6 +30,7 @@ exports.createOrder = async (req, res) => {
     const processedItems = [];
     let subtotal = 0;
 
+    // Process each item
     for (const item of items) {
       const product = Product.findById(item.product);
       if (!product) {
@@ -39,6 +44,13 @@ exports.createOrder = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: `Product is not available: ${product.name}`
+        });
+      }
+
+      if (product.stock < item.quantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient stock for ${product.name}`
         });
       }
 
@@ -56,21 +68,23 @@ exports.createOrder = async (req, res) => {
         image: product.image || ''
       });
 
-      // Update stock
+      // Reduce stock
       product.stock -= item.quantity;
       await product.save();
     }
 
+    // Calculate totals
     const calculatedDeliveryFee = deliveryFee || 100;
     const calculatedDiscount = discount || 0;
     const calculatedTax = tax || 0;
     const totalAmount = subtotal + calculatedDeliveryFee - calculatedDiscount + calculatedTax;
 
+    // Create the order
     const order = await Order.create({
-      user: req.user?.id,
+      user: req.user?.id || null,
       items: processedItems,
       customerInfo,
-      paymentMethod,
+      paymentMethod: paymentMethod || 'cash',
       subtotal,
       deliveryFee: calculatedDeliveryFee,
       discount: calculatedDiscount,
@@ -78,6 +92,15 @@ exports.createOrder = async (req, res) => {
       totalAmount,
       deliveryInstructions
     });
+
+    // Send emails (non‑blocking)
+    // Notify admin
+    emailService.sendNewOrderNotification(order).catch(err => console.error('Admin email error:', err));
+
+    // Notify customer
+    if (customerInfo.email) {
+      emailService.sendOrderConfirmation(customerInfo.email, order).catch(err => console.error('Customer email error:', err));
+    }
 
     res.status(201).json({
       success: true,
@@ -94,7 +117,9 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-// Get user orders
+/**
+ * Get all orders for the logged‑in user
+ */
 exports.getUserOrders = async (req, res) => {
   try {
     const orders = Order.findAll({ user: req.user.id });
@@ -111,7 +136,9 @@ exports.getUserOrders = async (req, res) => {
   }
 };
 
-// Get single order
+/**
+ * Get a single order by ID
+ */
 exports.getOrder = async (req, res) => {
   try {
     const order = Order.findById(req.params.id);
@@ -122,7 +149,8 @@ exports.getOrder = async (req, res) => {
       });
     }
 
-    if (order.user !== req.user.id && req.user.role !== 'admin') {
+    // Check if user is authorized
+    if (order.user && order.user !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to view this order'
@@ -142,7 +170,9 @@ exports.getOrder = async (req, res) => {
   }
 };
 
-// Track order
+/**
+ * Track order by order number (public)
+ */
 exports.trackOrder = async (req, res) => {
   try {
     const { orderNumber } = req.params;
@@ -165,9 +195,9 @@ exports.trackOrder = async (req, res) => {
         items: order.items,
         totalAmount: order.totalAmount,
         customerName: order.customerInfo?.fullName,
+        createdAt: order.createdAt,
         estimatedDeliveryTime: order.estimatedDeliveryTime,
-        actualDeliveryTime: order.actualDeliveryTime,
-        createdAt: order.createdAt
+        actualDeliveryTime: order.actualDeliveryTime
       }
     });
   } catch (error) {
@@ -179,7 +209,9 @@ exports.trackOrder = async (req, res) => {
   }
 };
 
-// Cancel order
+/**
+ * Cancel an order
+ */
 exports.cancelOrder = async (req, res) => {
   try {
     const order = Order.findById(req.params.id);
@@ -190,7 +222,8 @@ exports.cancelOrder = async (req, res) => {
       });
     }
 
-    if (order.user !== req.user.id && req.user.role !== 'admin') {
+    // Check authorization
+    if (order.user && order.user !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to cancel this order'
@@ -206,6 +239,21 @@ exports.cancelOrder = async (req, res) => {
 
     await order.changeStatus('CANCELLED', req.user.id, 'Order cancelled by user');
 
+    // Restore stock (optional, if you want)
+    for (const item of order.items) {
+      const product = Product.findById(item.product);
+      if (product) {
+        product.stock += item.quantity;
+        await product.save();
+      }
+    }
+
+    // Send cancellation email if customer email exists
+    if (order.customerInfo?.email) {
+      emailService.sendOrderStatusUpdate(order.customerInfo.email, order, 'CANCELLED')
+        .catch(err => console.error('Cancellation email error:', err));
+    }
+
     res.status(200).json({
       success: true,
       message: 'Order cancelled successfully',
@@ -220,7 +268,9 @@ exports.cancelOrder = async (req, res) => {
   }
 };
 
-// Rate order
+/**
+ * Rate a delivered order
+ */
 exports.rateOrder = async (req, res) => {
   try {
     const { rating, review } = req.body;
@@ -233,7 +283,7 @@ exports.rateOrder = async (req, res) => {
       });
     }
 
-    if (order.user !== req.user.id) {
+    if (order.user && order.user !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to rate this order'
@@ -247,9 +297,16 @@ exports.rateOrder = async (req, res) => {
       });
     }
 
+    if (order.isRated) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order already rated'
+      });
+    }
+
     order.isRated = true;
     order.rating = rating;
-    order.review = review;
+    order.review = review || '';
     await order.save();
 
     res.status(200).json({
