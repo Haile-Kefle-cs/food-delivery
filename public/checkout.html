@@ -22,6 +22,7 @@
                 <ul class="nav-menu">
                     <li><a href="index.html">Home</a></li>
                     <li><a href="menu.html">Menu</a></li>
+                    <li><a href="tracking.html">Track Order</a></li>
                 </ul>
                 <div class="nav-actions">
                     <a href="cart.html" class="cart-icon">
@@ -37,7 +38,7 @@
     <section class="checkout-section">
         <div class="container">
             <h1 class="page-title">Checkout</h1>
-            
+
             <div class="checkout-layout">
                 <!-- Checkout Form -->
                 <div class="checkout-form">
@@ -45,12 +46,12 @@
                         <!-- Delivery Information -->
                         <div class="form-section">
                             <h2><i class="fas fa-map-marker-alt"></i> Delivery Information</h2>
-                            
+
                             <div class="form-group">
                                 <label>Full Name *</label>
                                 <input type="text" id="fullName" required placeholder="Enter your full name">
                             </div>
-                            
+
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Phone Number *</label>
@@ -61,7 +62,7 @@
                                     <input type="email" id="email" placeholder="your@email.com">
                                 </div>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label>City *</label>
                                 <select id="city" required>
@@ -70,45 +71,45 @@
                                     <option value="Other">Other</option>
                                 </select>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label>Area / Kebele *</label>
                                 <input type="text" id="area" required placeholder="e.g., Kebele 01">
                             </div>
-                            
+
                             <div class="form-group">
                                 <label>Street Address *</label>
                                 <input type="text" id="street" required placeholder="Your street address">
                             </div>
-                            
+
                             <div class="form-group">
                                 <label>Additional Details</label>
                                 <textarea id="address-details" placeholder="Landmark, building name, floor, etc."></textarea>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label>Delivery Instructions</label>
                                 <textarea id="delivery-instructions" placeholder="Any special delivery instructions?"></textarea>
                             </div>
                         </div>
-                        
+
                         <!-- Payment Method -->
                         <div class="form-section">
                             <h2><i class="fas fa-credit-card"></i> Payment Method</h2>
-                            
+
                             <div class="payment-options">
                                 <label class="payment-option">
                                     <input type="radio" name="payment" value="cash" checked>
                                     <i class="fas fa-money-bill-wave"></i>
                                     <span>Cash on Delivery</span>
                                 </label>
-                                
+
                                 <label class="payment-option">
                                     <input type="radio" name="payment" value="telebirr">
                                     <i class="fas fa-mobile-alt"></i>
                                     <span>Telebirr</span>
                                 </label>
-                                
+
                                 <label class="payment-option">
                                     <input type="radio" name="payment" value="cbe_birr">
                                     <i class="fas fa-university"></i>
@@ -116,16 +117,17 @@
                                 </label>
                             </div>
                         </div>
+
+                        <!-- Hidden submit button (will be triggered by button below) -->
+                        <button type="submit" id="submit-order-btn" style="display:none;"></button>
                     </form>
                 </div>
-                
+
                 <!-- Order Summary -->
                 <div class="order-summary">
                     <h2>Order Summary</h2>
-                    <div id="checkout-items">
-                        <!-- Items will be displayed here -->
-                    </div>
-                    
+                    <div id="checkout-items"></div>
+
                     <div class="summary-row">
                         <span>Subtotal</span>
                         <span id="checkout-subtotal">0 ETB</span>
@@ -138,11 +140,11 @@
                         <span>Total</span>
                         <span id="checkout-total">0 ETB</span>
                     </div>
-                    
+
                     <button class="btn btn-primary btn-block btn-lg" onclick="placeOrder()">
                         <i class="fas fa-check-circle"></i> Place Order
                     </button>
-                    
+
                     <a href="cart.html" class="back-link">
                         <i class="fas fa-arrow-left"></i> Back to Cart
                     </a>
@@ -166,7 +168,170 @@
         </div>
     </div>
 
-    <script src="js/app.js"></script>
-    <script src="js/checkout.js"></script>
+    <script>
+        // ============================================
+        // CHECKOUT PAGE SCRIPT (Inline)
+        // ============================================
+        let cart = [];
+
+        // Load cart from localStorage
+        function loadCart() {
+            const saved = localStorage.getItem('cart');
+            cart = saved ? JSON.parse(saved) : [];
+        }
+
+        // Save cart
+        function saveCart() {
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartCount();
+        }
+
+        // Update cart count
+        function updateCartCount() {
+            const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+            document.querySelectorAll('.cart-count').forEach(el => {
+                el.textContent = count;
+                el.style.display = count > 0 ? 'block' : 'none';
+            });
+        }
+
+        // Calculate totals
+        function calculateTotals() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const deliveryFee = subtotal > 1000 ? 0 : 100;
+            const total = subtotal + deliveryFee;
+            return { subtotal, deliveryFee, total };
+        }
+
+        // Render checkout items and summary
+        function renderCheckout() {
+            const container = document.getElementById('checkout-items');
+            if (!container) return;
+
+            if (cart.length === 0) {
+                window.location.href = 'cart.html';
+                return;
+            }
+
+            container.innerHTML = cart.map(item => `
+                <div class="checkout-item" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;">
+                    <span>${item.name} × ${item.quantity}</span>
+                    <span>${item.price * item.quantity} ETB</span>
+                </div>
+            `).join('');
+
+            const { subtotal, deliveryFee, total } = calculateTotals();
+            document.getElementById('checkout-subtotal').textContent = `${subtotal} ETB`;
+            document.getElementById('checkout-delivery').textContent = deliveryFee === 0 ? 'FREE' : `${deliveryFee} ETB`;
+            document.getElementById('checkout-total').textContent = `${total} ETB`;
+        }
+
+        // Place order function
+        async function placeOrder() {
+            // Validate required fields
+            const fullName = document.getElementById('fullName').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const city = document.getElementById('city').value;
+            const area = document.getElementById('area').value.trim();
+            const street = document.getElementById('street').value.trim();
+            const addressDetails = document.getElementById('address-details').value.trim();
+            const deliveryInstructions = document.getElementById('delivery-instructions').value.trim();
+            const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+
+            if (!fullName || !phone || !area || !street) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            // Build order data
+            const orderData = {
+                items: cart.map(item => ({
+                    product: item.id,
+                    quantity: item.quantity,
+                    specialInstructions: item.specialInstructions || ''
+                })),
+                customerInfo: {
+                    fullName,
+                    phone,
+                    email,
+                    address: {
+                        city,
+                        area,
+                        street,
+                        details: addressDetails
+                    }
+                },
+                paymentMethod,
+                deliveryInstructions
+            };
+
+            // Disable button and show loading
+            const placeOrderBtn = document.querySelector('.order-summary .btn-primary');
+            const originalText = placeOrderBtn.innerHTML;
+            placeOrderBtn.disabled = true;
+            placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Placing Order...';
+
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(orderData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Clear cart
+                    cart = [];
+                    saveCart();
+
+                    // Show success modal
+                    document.getElementById('order-number').textContent = data.order.orderNumber;
+                    document.getElementById('success-modal').style.display = 'block';
+                } else {
+                    alert(data.message || 'Error placing order');
+                }
+            } catch (error) {
+                console.error('Place order error:', error);
+                alert('Error placing order. Please try again.');
+            } finally {
+                placeOrderBtn.disabled = false;
+                placeOrderBtn.innerHTML = originalText;
+            }
+        }
+
+        // Modal actions
+        function trackOrder() {
+            const orderNumber = document.getElementById('order-number').textContent;
+            window.location.href = `tracking.html?order=${orderNumber}`;
+        }
+
+        function goToMenu() {
+            window.location.href = 'menu.html';
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCart();
+            renderCheckout();
+            updateCartCount();
+
+            // Pre-fill if logged in
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (user.fullName) document.getElementById('fullName').value = user.fullName;
+            if (user.phone) document.getElementById('phone').value = user.phone;
+            if (user.email) document.getElementById('email').value = user.email;
+        });
+
+        // Expose functions globally
+        window.placeOrder = placeOrder;
+        window.trackOrder = trackOrder;
+        window.goToMenu = goToMenu;
+    </script>
 </body>
 </html>
