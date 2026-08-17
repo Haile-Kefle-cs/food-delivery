@@ -1,73 +1,87 @@
-// models/Category.js
-const mongoose = require('mongoose');
+// models/Category.js - File-based version
+const crypto = require('crypto');
+const db = require('../config/fileDatabase');
 
-const categorySchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Category name is required'],
-    unique: true,
-    trim: true,
-    maxlength: [50, 'Category name cannot exceed 50 characters']
-  },
-  slug: {
-    type: String,
-    unique: true,
-    lowercase: true
-  },
-  description: {
-    type: String,
-    maxlength: [500, 'Description cannot exceed 500 characters']
-  },
-  image: {
-    url: String,
-    publicId: String,
-    alt: String
-  },
-  icon: {
-    type: String,
-    default: '🍽️'
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  displayOrder: {
-    type: Number,
-    default: 0
-  },
-  parentCategory: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category'
-  },
-  mealType: {
-    type: String,
-    enum: ['breakfast', 'lunch', 'dinner', 'snack', 'dessert', 'drink', 'other'],
-    default: 'other'
+class Category {
+  constructor(data) {
+    Object.assign(this, data);
   }
-}, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
 
-// Virtual for products count
-categorySchema.virtual('productCount', {
-  ref: 'Product',
-  localField: '_id',
-  foreignField: 'category',
-  count: true
-});
+  static async create(categoryData) {
+    const categories = db.getCollection('categories');
 
-// Create slug before saving
-categorySchema.pre('save', function(next) {
-  if (this.isModified('name')) {
-    this.slug = this.name
-      .toLowerCase()
-      .replace(/[^a-zA-Z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
+    const category = {
+      id: crypto.randomUUID(),
+      name: categoryData.name,
+      slug: categoryData.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, '-'),
+      description: categoryData.description || '',
+      icon: categoryData.icon || '🍽️',
+      image: categoryData.image || '',
+      mealType: categoryData.mealType || 'other',
+      isActive: categoryData.isActive !== undefined ? categoryData.isActive : true,
+      displayOrder: categoryData.displayOrder || 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await db.addToCollection('categories', category);
+    return new Category(category);
   }
-  next();
-});
 
-module.exports = mongoose.model('Category', categorySchema);
+  static findById(id) {
+    const category = db.findInCollection('categories', c =>
+      c.id === id || c._id === id
+    );
+    return category ? new Category(category) : null;
+  }
+
+  static findOne(query) {
+    let categories = db.getCollection('categories');
+    if (query.name) {
+      categories = categories.filter(c => c.name.toLowerCase() === query.name.toLowerCase());
+    }
+    if (query.slug) {
+      categories = categories.filter(c => c.slug === query.slug);
+    }
+    return categories[0] ? new Category(categories[0]) : null;
+  }
+
+  static findAll(filter = {}) {
+    let categories = db.getCollection('categories');
+    if (filter.isActive !== undefined) {
+      categories = categories.filter(c => c.isActive === filter.isActive);
+    }
+    categories.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    return categories.map(c => new Category(c));
+  }
+
+  static find(filter = {}) {
+    let categories = db.getCollection('categories');
+    if (filter.isActive !== undefined) categories = categories.filter(c => c.isActive === filter.isActive);
+    if (filter._id) categories = categories.filter(c => c.id === filter._id || c._id === filter._id);
+    return categories;
+  }
+
+  static countDocuments(filter = {}) {
+    let categories = db.getCollection('categories');
+    if (filter.isActive !== undefined) categories = categories.filter(c => c.isActive === filter.isActive);
+    return categories.length;
+  }
+
+  async save() {
+    const categories = db.getCollection('categories');
+    const index = categories.findIndex(c => c.id === this.id);
+    if (index !== -1) {
+      categories[index] = { ...categories[index], ...this, updatedAt: new Date().toISOString() };
+      await db.save('categories');
+      return this;
+    }
+    return null;
+  }
+
+  async delete() {
+    return await db.removeFromCollection('categories', this.id);
+  }
+}
+
+module.exports = Category;

@@ -1,172 +1,143 @@
-// models/Product.js
-const mongoose = require('mongoose');
+// models/Product.js - File-based version
+const crypto = require('crypto');
+const db = require('../config/fileDatabase');
 
-const productSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Product name is required'],
-    trim: true,
-    maxlength: [100, 'Product name cannot exceed 100 characters']
-  },
-  slug: {
-    type: String,
-    unique: true,
-    lowercase: true
-  },
-  description: {
-    type: String,
-    required: [true, 'Description is required'],
-    maxlength: [1000, 'Description cannot exceed 1000 characters']
-  },
-  price: {
-    type: Number,
-    required: [true, 'Price is required'],
-    min: [0, 'Price cannot be negative']
-  },
-  discountPrice: {
-    type: Number,
-    min: [0, 'Discount price cannot be negative'],
-    validate: {
-      validator: function(value) {
-        return !this.price || value < this.price;
-      },
-      message: 'Discount price must be less than original price'
+class Product {
+  constructor(data) {
+    Object.assign(this, data);
+  }
+
+  static async create(productData) {
+    const products = db.getCollection('products');
+
+    const product = {
+      id: crypto.randomUUID(),
+      name: productData.name,
+      slug: productData.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, '-'),
+      description: productData.description || '',
+      price: productData.price,
+      discountPrice: productData.discountPrice || null,
+      category: productData.category || '',
+      image: productData.image || '',
+      ingredients: productData.ingredients || [],
+      allergens: productData.allergens || [],
+      preparationTime: productData.preparationTime || 15,
+      servingSize: productData.servingSize || '',
+      calories: productData.calories || null,
+      isVegetarian: productData.isVegetarian || false,
+      isVegan: productData.isVegan || false,
+      isGlutenFree: productData.isGlutenFree || false,
+      isAvailable: productData.isAvailable !== undefined ? productData.isAvailable : true,
+      isFeatured: productData.isFeatured || false,
+      isPopular: productData.isPopular || false,
+      stock: productData.stock || 100,
+      ratings: [],
+      averageRating: 0,
+      numReviews: 0,
+      tags: productData.tags || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await db.addToCollection('products', product);
+    return new Product(product);
+  }
+
+  static findById(id) {
+    const product = db.findInCollection('products', p =>
+      p.id === id || p._id === id
+    );
+    return product ? new Product(product) : null;
+  }
+
+  static findBySlug(slug) {
+    const product = db.findInCollection('products', p => p.slug === slug);
+    return product ? new Product(product) : null;
+  }
+
+  static findAll(filter = {}) {
+    let products = db.getCollection('products');
+
+    if (filter.isAvailable !== undefined) {
+      products = products.filter(p => p.isAvailable === filter.isAvailable);
     }
-  },
-  category: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category',
-    required: [true, 'Category is required']
-  },
-  image: {
-    url: String,
-    publicId: String,
-    alt: String
-  },
-  gallery: [{
-    url: String,
-    publicId: String
-  }],
-  ingredients: [{
-    type: String
-  }],
-  allergens: [{
-    type: String
-  }],
-  preparationTime: {
-    type: Number,
-    default: 15,
-    min: [5, 'Minimum preparation time is 5 minutes'],
-    max: [120, 'Maximum preparation time is 120 minutes']
-  },
-  servingSize: String,
-  calories: Number,
-  isVegetarian: {
-    type: Boolean,
-    default: false
-  },
-  isVegan: {
-    type: Boolean,
-    default: false
-  },
-  isGlutenFree: {
-    type: Boolean,
-    default: false
-  },
-  isAvailable: {
-    type: Boolean,
-    default: true
-  },
-  isFeatured: {
-    type: Boolean,
-    default: false
-  },
-  isPopular: {
-    type: Boolean,
-    default: false
-  },
-  stock: {
-    type: Number,
-    default: 100,
-    min: [0, 'Stock cannot be negative']
-  },
-  ratings: [{
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    rating: {
-      type: Number,
-      min: 1,
-      max: 5
-    },
-    review: String,
-    createdAt: {
-      type: Date,
-      default: Date.now
+    if (filter.isFeatured) {
+      products = products.filter(p => p.isFeatured);
     }
-  }],
-  averageRating: {
-    type: Number,
-    default: 0
-  },
-  numReviews: {
-    type: Number,
-    default: 0
-  },
-  tags: [{
-    type: String
-  }],
-  meta: {
-    title: String,
-    description: String,
-    keywords: [String]
+    if (filter.isPopular) {
+      products = products.filter(p => p.isPopular);
+    }
+    if (filter.category) {
+      products = products.filter(p => p.category === filter.category);
+    }
+    if (filter.search) {
+      const searchRegex = new RegExp(filter.search, 'i');
+      products = products.filter(p =>
+        searchRegex.test(p.name) || searchRegex.test(p.description || '')
+      );
+    }
+    // Sort by createdAt descending by default
+    products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return products.map(p => new Product(p));
   }
-}, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
 
-// Create slug before saving
-productSchema.pre('save', function(next) {
-  if (this.isModified('name')) {
-    this.slug = this.name
-      .toLowerCase()
-      .replace(/[^a-zA-Z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
+  // Compatibility method for controllers that use Product.find()
+  static find(filter = {}) {
+    let products = db.getCollection('products');
+    if (filter.isAvailable !== undefined) products = products.filter(p => p.isAvailable === filter.isAvailable);
+    if (filter.isFeatured) products = products.filter(p => p.isFeatured);
+    if (filter.isPopular) products = products.filter(p => p.isPopular);
+    if (filter.category) products = products.filter(p => p.category === filter.category);
+    if (filter._id) products = products.filter(p => p.id === filter._id || p._id === filter._id);
+    return products;
   }
-  next();
-});
 
-// Calculate average rating
-productSchema.methods.calculateAverageRating = function() {
-  if (this.ratings.length === 0) {
-    this.averageRating = 0;
-    this.numReviews = 0;
-    return;
+  static countDocuments(filter = {}) {
+    let products = db.getCollection('products');
+    if (filter.isAvailable !== undefined) products = products.filter(p => p.isAvailable === filter.isAvailable);
+    if (filter.category) products = products.filter(p => p.category === filter.category);
+    return products.length;
   }
-  
-  const totalRating = this.ratings.reduce((sum, item) => sum + item.rating, 0);
-  this.averageRating = totalRating / this.ratings.length;
-  this.numReviews = this.ratings.length;
-};
 
-// Check if product has discount
-productSchema.virtual('hasDiscount').get(function() {
-  return this.discountPrice && this.discountPrice < this.price;
-});
+  async save() {
+    const products = db.getCollection('products');
+    const index = products.findIndex(p => p.id === this.id);
+    if (index !== -1) {
+      products[index] = { ...products[index], ...this, updatedAt: new Date().toISOString() };
+      await db.save('products');
+      return this;
+    }
+    return null;
+  }
 
-// Get discount percentage
-productSchema.virtual('discountPercentage').get(function() {
-  if (!this.hasDiscount) return 0;
-  return Math.round(((this.price - this.discountPrice) / this.price) * 100);
-});
+  async delete() {
+    return await db.removeFromCollection('products', this.id);
+  }
 
-// Get current price (discounted if available)
-productSchema.virtual('currentPrice').get(function() {
-  return this.hasDiscount ? this.discountPrice : this.price;
-});
+  get hasDiscount() {
+    return this.discountPrice && this.discountPrice < this.price;
+  }
 
-module.exports = mongoose.model('Product', productSchema);s
+  get discountPercentage() {
+    if (!this.hasDiscount) return 0;
+    return Math.round(((this.price - this.discountPrice) / this.price) * 100);
+  }
+
+  get currentPrice() {
+    return this.hasDiscount ? this.discountPrice : this.price;
+  }
+
+  calculateAverageRating() {
+    if (!this.ratings || this.ratings.length === 0) {
+      this.averageRating = 0;
+      this.numReviews = 0;
+      return;
+    }
+    const totalRating = this.ratings.reduce((sum, item) => sum + (item.rating || 0), 0);
+    this.averageRating = totalRating / this.ratings.length;
+    this.numReviews = this.ratings.length;
+  }
+}
+
+module.exports = Product;

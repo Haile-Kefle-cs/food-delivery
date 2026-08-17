@@ -1,33 +1,21 @@
-// controllers/orderController.js
+// controllers/orderController.js - File-based version
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const User = require('../models/User');
-const emailService = require('../services/emailService');
-const { validationResult } = require('express-validator');
+const db = require('../config/fileDatabase');
 
 // Create new order
 exports.createOrder = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
-    }
-
     const {
       items,
       customerInfo,
       paymentMethod,
       deliveryFee,
       discount,
-      coupon,
       tax,
       deliveryInstructions
     } = req.body;
 
-    // Validate items
     if (!items || items.length === 0) {
       return res.status(400).json({
         success: false,
@@ -35,13 +23,11 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    // Process items and validate products
     const processedItems = [];
     let subtotal = 0;
 
     for (const item of items) {
-      const product = await Product.findById(item.product);
-      
+      const product = Product.findById(item.product);
       if (!product) {
         return res.status(404).json({
           success: false,
@@ -56,25 +42,18 @@ exports.createOrder = async (req, res) => {
         });
       }
 
-      if (product.stock < item.quantity) {
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for ${product.name}`
-        });
-      }
-
       const price = product.discountPrice || product.price;
       const itemSubtotal = price * item.quantity;
       subtotal += itemSubtotal;
 
       processedItems.push({
-        product: product._id,
+        product: product.id,
         name: product.name,
         price: price,
         quantity: item.quantity,
         subtotal: itemSubtotal,
-        specialInstructions: item.specialInstructions,
-        image: product.image?.url
+        specialInstructions: item.specialInstructions || '',
+        image: product.image || ''
       });
 
       // Update stock
@@ -82,15 +61,12 @@ exports.createOrder = async (req, res) => {
       await product.save();
     }
 
-    // Calculate totals
     const calculatedDeliveryFee = deliveryFee || 100;
     const calculatedDiscount = discount || 0;
     const calculatedTax = tax || 0;
     const totalAmount = subtotal + calculatedDeliveryFee - calculatedDiscount + calculatedTax;
 
-    // Create order
     const order = await Order.create({
-      orderNumber: await Order.generateOrderNumber(),
       user: req.user?.id,
       items: processedItems,
       customerInfo,
@@ -98,21 +74,10 @@ exports.createOrder = async (req, res) => {
       subtotal,
       deliveryFee: calculatedDeliveryFee,
       discount: calculatedDiscount,
-      coupon,
       tax: calculatedTax,
       totalAmount,
-      deliveryInstructions,
-      statusHistory: [{
-        status: 'PENDING',
-        note: 'Order created'
-      }]
+      deliveryInstructions
     });
-
-    // Send emails
-    await emailService.sendNewOrderNotification(order);
-    if (customerInfo.email) {
-      await emailService.sendOrderConfirmation(customerInfo.email, order);
-    }
 
     res.status(201).json({
       success: true,
@@ -132,34 +97,16 @@ exports.createOrder = async (req, res) => {
 // Get user orders
 exports.getUserOrders = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    const orders = await Order.find({ user: req.user.id })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate('items.product', 'name image');
-
-    const total = await Order.countDocuments({ user: req.user.id });
-
+    const orders = Order.findAll({ user: req.user.id });
     res.status(200).json({
       success: true,
-      orders,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      orders
     });
   } catch (error) {
     console.error('Get user orders error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching orders',
-      error: error.message
+      message: 'Error fetching orders'
     });
   }
 };
@@ -167,9 +114,7 @@ exports.getUserOrders = async (req, res) => {
 // Get single order
 exports.getOrder = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
-      .populate('items.product', 'name image price');
-
+    const order = Order.findById(req.params.id);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -177,8 +122,7 @@ exports.getOrder = async (req, res) => {
       });
     }
 
-    // Check if user is authorized
-    if (order.user?.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (order.user !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to view this order'
@@ -193,8 +137,7 @@ exports.getOrder = async (req, res) => {
     console.error('Get order error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching order',
-      error: error.message
+      message: 'Error fetching order'
     });
   }
 };
@@ -203,9 +146,7 @@ exports.getOrder = async (req, res) => {
 exports.trackOrder = async (req, res) => {
   try {
     const { orderNumber } = req.params;
-    
-    const order = await Order.findOne({ orderNumber })
-      .select('orderNumber orderStatus statusHistory items totalAmount customerInfo createdAt estimatedDeliveryTime actualDeliveryTime');
+    const order = Order.findByOrderNumber(orderNumber);
 
     if (!order) {
       return res.status(404).json({
@@ -214,40 +155,26 @@ exports.trackOrder = async (req, res) => {
       });
     }
 
-    // Calculate progress
-    const statusMap = {
-      'PENDING': 20,
-      'APPROVED': 40,
-      'PREPARING': 60,
-      'READY': 70,
-      'OUT_FOR_DELIVERY': 85,
-      'DELIVERED': 100,
-      'REJECTED': 0,
-      'CANCELLED': 0
-    };
-
-    const progress = statusMap[order.orderStatus] || 0;
-
     res.status(200).json({
       success: true,
       tracking: {
         orderNumber: order.orderNumber,
         status: order.orderStatus,
-        progress,
+        progress: order.progress,
         statusHistory: order.statusHistory,
         items: order.items,
         totalAmount: order.totalAmount,
-        customerName: order.customerInfo.fullName,
+        customerName: order.customerInfo?.fullName,
         estimatedDeliveryTime: order.estimatedDeliveryTime,
-        actualDeliveryTime: order.actualDeliveryTime
+        actualDeliveryTime: order.actualDeliveryTime,
+        createdAt: order.createdAt
       }
     });
   } catch (error) {
     console.error('Track order error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error tracking order',
-      error: error.message
+      message: 'Error tracking order'
     });
   }
 };
@@ -255,8 +182,7 @@ exports.trackOrder = async (req, res) => {
 // Cancel order
 exports.cancelOrder = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
-
+    const order = Order.findById(req.params.id);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -264,15 +190,13 @@ exports.cancelOrder = async (req, res) => {
       });
     }
 
-    // Check if user is authorized
-    if (order.user?.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (order.user !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to cancel this order'
       });
     }
 
-    // Check if order can be cancelled
     if (['DELIVERED', 'REJECTED', 'CANCELLED'].includes(order.orderStatus)) {
       return res.status(400).json({
         success: false,
@@ -281,18 +205,6 @@ exports.cancelOrder = async (req, res) => {
     }
 
     await order.changeStatus('CANCELLED', req.user.id, 'Order cancelled by user');
-
-    // Restore stock
-    for (const item of order.items) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stock: item.quantity }
-      });
-    }
-
-    // Send cancellation email
-    if (order.customerInfo.email) {
-      await emailService.sendOrderCancellationEmail(order.customerInfo.email, order);
-    }
 
     res.status(200).json({
       success: true,
@@ -303,8 +215,7 @@ exports.cancelOrder = async (req, res) => {
     console.error('Cancel order error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error cancelling order',
-      error: error.message
+      message: 'Error cancelling order'
     });
   }
 };
@@ -313,7 +224,7 @@ exports.cancelOrder = async (req, res) => {
 exports.rateOrder = async (req, res) => {
   try {
     const { rating, review } = req.body;
-    const order = await Order.findById(req.params.id);
+    const order = Order.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({
@@ -322,7 +233,7 @@ exports.rateOrder = async (req, res) => {
       });
     }
 
-    if (order.user?.toString() !== req.user.id) {
+    if (order.user !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to rate this order'
@@ -333,13 +244,6 @@ exports.rateOrder = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Can only rate delivered orders'
-      });
-    }
-
-    if (order.isRated) {
-      return res.status(400).json({
-        success: false,
-        message: 'Order already rated'
       });
     }
 
@@ -357,8 +261,7 @@ exports.rateOrder = async (req, res) => {
     console.error('Rate order error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error rating order',
-      error: error.message
+      message: 'Error rating order'
     });
   }
 };

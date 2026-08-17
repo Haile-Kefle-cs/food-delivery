@@ -1,195 +1,130 @@
-// models/Order.js
-const mongoose = require('mongoose');
+// models/Order.js - File-based version
 const crypto = require('crypto');
+const db = require('../config/fileDatabase');
 
-const orderSchema = new mongoose.Schema({
-  orderNumber: {
-    type: String,
-    unique: true,
-    required: true
-  },
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'User is required']
-  },
-  items: [{
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
-      required: true
-    },
-    name: String,
-    price: Number,
-    quantity: {
-      type: Number,
-      required: true,
-      min: [1, 'Quantity must be at least 1']
-    },
-    subtotal: Number,
-    specialInstructions: String,
-    image: String
-  }],
-  customerInfo: {
-    fullName: {
-      type: String,
-      required: true
-    },
-    phone: {
-      type: String,
-      required: true
-    },
-    email: String,
-    address: {
-      city: {
-        type: String,
-        default: 'Debre Birhan'
-      },
-      area: {
-        type: String,
-        required: true
-      },
-      street: String,
-      details: String,
-      latitude: Number,
-      longitude: Number
+class Order {
+  constructor(data) {
+    Object.assign(this, data);
+  }
+
+  static generateOrderNumber() {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const random = crypto.randomBytes(2).toString('hex').toUpperCase();
+    return `ORD-${year}${month}${day}-${random}`;
+  }
+
+  static async create(orderData) {
+    const orders = db.getCollection('orders');
+
+    const order = {
+      id: crypto.randomUUID(),
+      orderNumber: Order.generateOrderNumber(),
+      user: orderData.user,
+      items: orderData.items,
+      customerInfo: orderData.customerInfo,
+      paymentMethod: orderData.paymentMethod || 'cash',
+      paymentStatus: orderData.paymentMethod === 'cash' ? 'paid' : 'pending',
+      orderStatus: 'PENDING',
+      statusHistory: [{
+        status: 'PENDING',
+        changedAt: new Date().toISOString(),
+        note: 'Order created'
+      }],
+      subtotal: orderData.subtotal,
+      deliveryFee: orderData.deliveryFee || 100,
+      discount: orderData.discount || 0,
+      tax: orderData.tax || 0,
+      totalAmount: orderData.totalAmount,
+      deliveryInstructions: orderData.deliveryInstructions,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await db.addToCollection('orders', order);
+    return new Order(order);
+  }
+
+  static findById(id) {
+    const order = db.findInCollection('orders', o =>
+      o.id === id || o._id === id
+    );
+    return order ? new Order(order) : null;
+  }
+
+  static findByOrderNumber(orderNumber) {
+    const order = db.findInCollection('orders', o =>
+      o.orderNumber === orderNumber
+    );
+    return order ? new Order(order) : null;
+  }
+
+  static findAll(filter = {}) {
+    let orders = db.getCollection('orders');
+
+    if (filter.user) {
+      orders = orders.filter(o => o.user === filter.user);
     }
-  },
-  paymentMethod: {
-    type: String,
-    enum: ['cash', 'telebirr', 'cbe_birr', 'chapa', 'other'],
-    default: 'cash'
-  },
-  paymentStatus: {
-    type: String,
-    enum: ['pending', 'paid', 'failed', 'refunded'],
-    default: 'pending'
-  },
-  paymentDetails: {
-    transactionId: String,
-    paidAt: Date,
-    refundId: String,
-    refundedAt: Date
-  },
-  orderStatus: {
-    type: String,
-    enum: ['PENDING', 'APPROVED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'REJECTED', 'CANCELLED'],
-    default: 'PENDING'
-  },
-  statusHistory: [{
-    status: String,
-    changedAt: {
-      type: Date,
-      default: Date.now
-    },
-    changedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    note: String
-  }],
-  subtotal: {
-    type: Number,
-    required: true
-  },
-  deliveryFee: {
-    type: Number,
-    required: true,
-    default: 100
-  },
-  discount: {
-    type: Number,
-    default: 0
-  },
-  coupon: {
-    code: String,
-    discountAmount: Number
-  },
-  tax: {
-    type: Number,
-    default: 0
-  },
-  totalAmount: {
-    type: Number,
-    required: true
-  },
-  deliveryInstructions: String,
-  estimatedDeliveryTime: Date,
-  actualDeliveryTime: Date,
-  rejectionReason: String,
-  isRated: {
-    type: Boolean,
-    default: false
-  },
-  rating: {
-    type: Number,
-    min: 1,
-    max: 5
-  },
-  review: String,
-  createdAt: {
-    type: Date,
-    default: Date.now
+    if (filter.status) {
+      orders = orders.filter(o => o.orderStatus === filter.status);
+    }
+    // Basic sorting by createdAt descending
+    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return orders.map(o => new Order(o));
   }
-}, {
-  timestamps: true
-});
 
-// Generate unique order number
-orderSchema.statics.generateOrderNumber = function() {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const random = crypto.randomBytes(2).toString('hex').toUpperCase();
-  return `ORD-${year}${month}${day}-${random}`;
-};
-
-// Calculate totals before saving
-orderSchema.pre('save', function(next) {
-  // Calculate item subtotals
-  this.items.forEach(item => {
-    item.subtotal = item.price * item.quantity;
-  });
-  
-  // Calculate order subtotal
-  this.subtotal = this.items.reduce((sum, item) => sum + item.subtotal, 0);
-  
-  // Calculate total
-  this.totalAmount = this.subtotal + this.deliveryFee - this.discount + this.tax;
-  
-  next();
-});
-
-// Add status change method
-orderSchema.methods.changeStatus = function(newStatus, user, note) {
-  this.orderStatus = newStatus;
-  this.statusHistory.push({
-    status: newStatus,
-    changedBy: user?._id || user,
-    note: note
-  });
-  
-  if (newStatus === 'DELIVERED') {
-    this.actualDeliveryTime = new Date();
+  static find(filter = {}) {
+    // Compatibility method for controllers that use Order.find()
+    let orders = db.getCollection('orders');
+    if (filter.user) orders = orders.filter(o => o.user === filter.user);
+    if (filter.orderStatus) orders = orders.filter(o => o.orderStatus === filter.orderStatus);
+    return orders;
   }
-  
-  return this.save();
-};
 
-// Virtual for tracking percentage
-orderSchema.virtual('progress').get(function() {
-  const statusMap = {
-    'PENDING': 20,
-    'APPROVED': 40,
-    'PREPARING': 60,
-    'READY': 70,
-    'OUT_FOR_DELIVERY': 85,
-    'DELIVERED': 100,
-    'REJECTED': 0,
-    'CANCELLED': 0
-  };
-  return statusMap[this.orderStatus] || 0;
-});
+  async save() {
+    const orders = db.getCollection('orders');
+    const index = orders.findIndex(o => o.id === this.id);
+    if (index !== -1) {
+      orders[index] = { ...orders[index], ...this, updatedAt: new Date().toISOString() };
+      await db.save('orders');
+      return this;
+    }
+    return null;
+  }
 
-module.exports = mongoose.model('Order', orderSchema);
+  async changeStatus(newStatus, user, note) {
+    this.orderStatus = newStatus;
+    this.statusHistory.push({
+      status: newStatus,
+      changedBy: user,
+      changedAt: new Date().toISOString(),
+      note: note || `Status changed to ${newStatus}`
+    });
+
+    if (newStatus === 'DELIVERED') {
+      this.actualDeliveryTime = new Date().toISOString();
+      this.paymentStatus = 'paid';
+    }
+
+    return await this.save();
+  }
+
+  get progress() {
+    const statusMap = {
+      'PENDING': 20,
+      'APPROVED': 40,
+      'PREPARING': 60,
+      'READY': 70,
+      'OUT_FOR_DELIVERY': 85,
+      'DELIVERED': 100,
+      'REJECTED': 0,
+      'CANCELLED': 0
+    };
+    return statusMap[this.orderStatus] || 0;
+  }
+}
+
+module.exports = Order;
