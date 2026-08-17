@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Food Delivery Admin</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/admin.css">
+    <link rel="stylesheet" href="../css/responsive.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="admin-body">
+    <!-- Admin Sidebar -->
+    <div class="admin-sidebar" id="adminSidebar">
+        <div class="admin-logo">
+            <i class="fas fa-utensils"></i>
+            <span>FoodDelivery Admin</span>
+        </div>
+        
+        <nav class="admin-nav">
+            <a href="index.html">
+                <i class="fas fa-dashboard"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="orders.html">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Orders</span>
+            </a>
+            <a href="products.html">
+                <i class="fas fa-hamburger"></i>
+                <span>Products</span>
+            </a>
+            <a href="customers.html">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+            <a href="reports.html" class="active">
+                <i class="fas fa-chart-bar"></i>
+                <span>Reports</span>
+            </a>
+            <a href="#" id="admin-logout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="admin-main">
+        <header class="admin-header">
+            <button class="sidebar-toggle" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1>Reports & Analytics</h1>
+            <div class="report-actions">
+                <button class="btn btn-outline" onclick="exportReport()">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
+            </div>
+        </header>
+
+        <div class="admin-content">
+            <!-- Date Range Filter -->
+            <div class="filters-bar">
+                <div class="date-filter">
+                    <label>From:</label>
+                    <input type="date" id="start-date">
+                    <label>To:</label>
+                    <input type="date" id="end-date">
+                    <button class="btn btn-primary btn-sm" onclick="generateReport()">Generate</button>
+                </div>
+                
+                <select id="report-period" class="filter-select" onchange="changePeriod()">
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="year">This Year</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #4caf50;">
+                        <i class="fas fa-money-bill"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="report-revenue">0 ETB</h3>
+                        <p>Total Revenue</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #2196f3;">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="report-orders">0</h3>
+                        <p>Total Orders</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #ff9800;">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="report-avg-order">0 ETB</h3>
+                        <p>Average Order Value</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f44336;">
+                        <i class="fas fa-utensils"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="report-items-sold">0</h3>
+                        <p>Items Sold</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Revenue Trend</h3>
+                    <canvas id="revenue-chart"></canvas>
+                </div>
+                
+                <div class="chart-card">
+                    <h3>Orders Trend</h3>
+                    <canvas id="orders-trend-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Payment Breakdown -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Payment Methods</h3>
+                    <canvas id="payment-chart"></canvas>
+                </div>
+                
+                <div class="chart-card">
+                    <h3>Top Products</h3>
+                    <div id="top-products-report">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Report Table -->
+            <div class="table-card">
+                <div class="card-header">
+                    <h3>Detailed Report</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Orders</th>
+                                <th>Revenue</th>
+                                <th>Avg Order Value</th>
+                                <th>Items Sold</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+    <script src="../js/admin.js"></script>
+</body>
+</html>

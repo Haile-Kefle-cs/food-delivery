@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customers Management - Food Delivery Admin</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/admin.css">
+    <link rel="stylesheet" href="../css/responsive.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="admin-body">
+    <!-- Admin Sidebar -->
+    <div class="admin-sidebar" id="adminSidebar">
+        <div class="admin-logo">
+            <i class="fas fa-utensils"></i>
+            <span>FoodDelivery Admin</span>
+        </div>
+        
+        <nav class="admin-nav">
+            <a href="index.html">
+                <i class="fas fa-dashboard"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="orders.html">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Orders</span>
+            </a>
+            <a href="products.html">
+                <i class="fas fa-hamburger"></i>
+                <span>Products</span>
+            </a>
+            <a href="customers.html" class="active">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </a>
+            <a href="reports.html">
+                <i class="fas fa-chart-bar"></i>
+                <span>Reports</span>
+            </a>
+            <a href="#" id="admin-logout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="admin-main">
+        <header class="admin-header">
+            <button class="sidebar-toggle" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1>Customers Management</h1>
+        </header>
+
+        <div class="admin-content">
+            <!-- Search -->
+            <div class="filters-bar">
+                <div class="search-filter">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="customer-search" placeholder="Search customers...">
+                </div>
+            </div>
+
+            <!-- Customers Table -->
+            <div class="table-card">
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Contact</th>
+                                <th>Orders</th>
+                                <th>Total Spent</th>
+                                <th>Joined</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customers-table-body">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="pagination" id="customers-pagination">
+                    <!-- Pagination buttons -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Details Modal -->
+    <div class="modal" id="customer-details-modal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Customer Details</h2>
+                <span class="close-modal" onclick="closeCustomerDetails()">&times;</span>
+            </div>
+            <div class="modal-body" id="customer-details-content">
+                <!-- Loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+    <script src="../js/admin.js"></script>
+</body>
+</html>

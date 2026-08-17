@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Food Delivery</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-wrapper">
+                <div class="logo">
+                    <a href="index.html">
+                        <i class="fas fa-utensils"></i>
+                        <span>FoodDelivery</span>
+                    </a>
+                </div>
+                <ul class="nav-menu">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="menu.html">Menu</a></li>
+                </ul>
+                <div class="nav-actions">
+                    <a href="cart.html" class="cart-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="cart-count" id="cart-count">0</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Checkout Section -->
+    <section class="checkout-section">
+        <div class="container">
+            <h1 class="page-title">Checkout</h1>
+            
+            <div class="checkout-layout">
+                <!-- Checkout Form -->
+                <div class="checkout-form">
+                    <form id="checkout-form">
+                        <!-- Delivery Information -->
+                        <div class="form-section">
+                            <h2><i class="fas fa-map-marker-alt"></i> Delivery Information</h2>
+                            
+                            <div class="form-group">
+                                <label>Full Name *</label>
+                                <input type="text" id="fullName" required placeholder="Enter your full name">
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Phone Number *</label>
+                                    <input type="tel" id="phone" required placeholder="+251 9XX XXX XXX">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" id="email" placeholder="your@email.com">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>City *</label>
+                                <select id="city" required>
+                                    <option value="Debre Birhan">Debre Birhan</option>
+                                    <option value="Addis Ababa">Addis Ababa</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Area / Kebele *</label>
+                                <input type="text" id="area" required placeholder="e.g., Kebele 01">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Street Address *</label>
+                                <input type="text" id="street" required placeholder="Your street address">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Additional Details</label>
+                                <textarea id="address-details" placeholder="Landmark, building name, floor, etc."></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Delivery Instructions</label>
+                                <textarea id="delivery-instructions" placeholder="Any special delivery instructions?"></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Payment Method -->
+                        <div class="form-section">
+                            <h2><i class="fas fa-credit-card"></i> Payment Method</h2>
+                            
+                            <div class="payment-options">
+                                <label class="payment-option">
+                                    <input type="radio" name="payment" value="cash" checked>
+                                    <i class="fas fa-money-bill-wave"></i>
+                                    <span>Cash on Delivery</span>
+                                </label>
+                                
+                                <label class="payment-option">
+                                    <input type="radio" name="payment" value="telebirr">
+                                    <i class="fas fa-mobile-alt"></i>
+                                    <span>Telebirr</span>
+                                </label>
+                                
+                                <label class="payment-option">
+                                    <input type="radio" name="payment" value="cbe_birr">
+                                    <i class="fas fa-university"></i>
+                                    <span>CBE Birr</span>
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Order Summary -->
+                <div class="order-summary">
+                    <h2>Order Summary</h2>
+                    <div id="checkout-items">
+                        <!-- Items will be displayed here -->
+                    </div>
+                    
+                    <div class="summary-row">
+                        <span>Subtotal</span>
+                        <span id="checkout-subtotal">0 ETB</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Delivery Fee</span>
+                        <span id="checkout-delivery">100 ETB</span>
+                    </div>
+                    <div class="summary-row total-row">
+                        <span>Total</span>
+                        <span id="checkout-total">0 ETB</span>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-block btn-lg" onclick="placeOrder()">
+                        <i class="fas fa-check-circle"></i> Place Order
+                    </button>
+                    
+                    <a href="cart.html" class="back-link">
+                        <i class="fas fa-arrow-left"></i> Back to Cart
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Success Modal -->
+    <div class="modal" id="success-modal">
+        <div class="modal-content success-modal">
+            <i class="fas fa-check-circle success-icon"></i>
+            <h2>Order Placed Successfully!</h2>
+            <p>Your order number is:</p>
+            <h3 id="order-number"></h3>
+            <p>We will notify you when your order status changes.</p>
+            <button class="btn btn-primary" onclick="trackOrder()">
+                <i class="fas fa-truck"></i> Track Order
+            </button>
+            <button class="btn btn-outline" onclick="goToMenu()">Continue Shopping</button>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="js/checkout.js"></script>
+</body>
+</html>

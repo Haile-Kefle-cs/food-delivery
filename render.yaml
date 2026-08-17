@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: food-delivery
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEBSITE_URL
+        value: https://food-delivery.onrender.com
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USER
+        value: hulgebmereja2017@gmail.com
+      - key: ADMIN_EMAIL
+        value: hulgebmereja2017@gmail.com
+      - key: COMPANY_NAME
+        value: Food Delivery
+      - key: COMPANY_PHONE
+        value: "+251912345678"
+      - key: COMPANY_ADDRESS
+        value: "Debre Birhan, Ethiopia"
+      - key: BASE_DELIVERY_FEE
+        value: "100"
+      - key: FREE_DELIVERY_THRESHOLD
+        value: "1000"
+    autoDeploy: true

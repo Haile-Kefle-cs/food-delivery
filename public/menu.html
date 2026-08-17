@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu - Food Delivery</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-wrapper">
+                <div class="logo">
+                    <a href="index.html">
+                        <i class="fas fa-utensils"></i>
+                        <span>FoodDelivery</span>
+                    </a>
+                </div>
+                
+                <ul class="nav-menu" id="nav-menu">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="menu.html" class="active">Menu</a></li>
+                    <li><a href="tracking.html">Track Order</a></li>
+                    <li><a href="index.html#contact">Contact</a></li>
+                </ul>
+                
+                <div class="nav-actions">
+                    <a href="cart.html" class="cart-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="cart-count" id="cart-count">0</span>
+                    </a>
+                    <button class="hamburger" id="hamburger">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Menu Header -->
+    <section class="menu-header">
+        <div class="container">
+            <h1>Our Menu</h1>
+            <p>Explore our delicious dishes</p>
+        </div>
+    </section>
+
+    <!-- Menu Content -->
+    <section class="menu-section">
+        <div class="container">
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="Search for food...">
+                <button id="search-btn" class="btn btn-primary">Search</button>
+            </div>
+
+            <!-- Categories Filter -->
+            <div class="categories-filter" id="categories-filter">
+                <button class="filter-btn active" data-category="all">
+                    <span class="filter-icon">🍽️</span>
+                    <span>All</span>
+                </button>
+                <!-- More categories loaded dynamically -->
+            </div>
+
+            <!-- Products Grid -->
+            <div class="products-grid" id="products-grid">
+                <div class="loading-spinner"></div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <!-- Pagination buttons -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Product Detail Modal -->
+    <div class="modal" id="product-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeProductModal()">&times;</span>
+            <div class="product-detail">
+                <div class="product-detail-image">
+                    <img id="modal-product-image" src="" alt="">
+                </div>
+                <div class="product-detail-info">
+                    <h2 id="modal-product-name"></h2>
+                    <p class="product-detail-description" id="modal-product-description"></p>
+                    <div class="product-detail-price">
+                        <span id="modal-product-price"></span>
+                        <span id="modal-product-original-price" class="original-price"></span>
+                    </div>
+                    <div class="quantity-selector">
+                        <label>Quantity:</label>
+                        <button onclick="changeQuantity(-1)">-</button>
+                        <span id="modal-quantity">1</span>
+                        <button onclick="changeQuantity(1)">+</button>
+                    </div>
+                    <div class="special-instructions">
+                        <label>Special Instructions:</label>
+                        <textarea id="modal-instructions" placeholder="Any special requests?"></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-block" onclick="addToCartFromModal()">
+                        <i class="fas fa-cart-plus"></i> Add to Cart
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2024 FoodDelivery. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+    <script src="js/menu.js"></script>
+</body>
+</html>
